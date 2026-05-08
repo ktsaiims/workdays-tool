@@ -1,5 +1,6 @@
 import holidays
 import numpy as np
+import pandas as pd
 import streamlit as st
 from datetime import datetime
 
@@ -54,12 +55,8 @@ def count_workdays(start_date: np.datetime64, end_date: np.datetime64, holidays:
     Returns:
         Number of workdays (Mon-Fri)
     '''
-    return int(np.busday_count(begindates=start_date, enddates=end_date, holidays=holidays))
+    return int(np.busday_count(begindates=start_date, enddates=end_date + 1, holidays=holidays))
 
-
-user_year = input('>>Enter year: ')
-start_date = standardize_date(f'{user_year}-01-01')
-end_date = standardize_date(f'{user_year}-12-31')
 
 HOLIDAY_EXCLUSIONS = [
     'Birthday of Martin Luther King, Jr.',
@@ -70,6 +67,11 @@ HOLIDAY_EXCLUSIONS = [
     'Christmas Eve'
 ]
 
+current_year = datetime.now().year
+user_year = st.number_input(f'Enter year (default {current_year}):', value=current_year)
+start_date = standardize_date(f'{user_year}-01-01')
+end_date = standardize_date(f'{user_year}-12-31')
+
 us_fed_holidays = holidays.US(years=user_year, categories=holidays.GOVERNMENT)
 
 # Remove excluded holidays (wildcard match)
@@ -78,20 +80,37 @@ for date, name in us_fed_holidays.items():
     if not any(word in name for word in HOLIDAY_EXCLUSIONS):
         filtered_holidays[date] = name
 
+# List of holiday dates
 holiday_dates = []
 for date in filtered_holidays.keys():
     holiday_dates.append(standardize_date(str(date)))
 
+# Dataframe of holidays
+df_holidays = pd.DataFrame(list(filtered_holidays.items()), columns=['Date', 'Holiday'])
+
+# Convert numpy datetime64 to Python datetime
+py_start_date = pd.Timestamp(start_date).to_pydatetime()
+py_end_date = pd.Timestamp(end_date).to_pydatetime()
+
 num_workdays = count_workdays(start_date, end_date, holiday_dates)
+total_days = (py_end_date - py_start_date).days + 1 # convert timedelta to days for math
+num_weekends = total_days - num_workdays
 
+year_info = {
+    'Total days': total_days,
+    'Number of Workdays': num_workdays,
+    'Number of Weekends': num_weekends,
+    'Number of Holidays': len(filtered_holidays)
+}
 
+# === Streamlit ===
+st.title(f'{user_year} IMS Workdays', text_alignment='center')
 
-'''
-Year: 2026
-Workdays: 123
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Total Days", total_days)
+col2.metric("Workdays", num_workdays)
+col3.metric("Weekends", num_weekends)
+col4.metric("Holidays", len(filtered_holidays))
 
-Holidays
-#######
-
-
-'''
+st.header('Holidays')
+st.table(df_holidays)
