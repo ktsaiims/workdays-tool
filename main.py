@@ -76,17 +76,27 @@ us_fed_holidays = holidays.US(years=user_year, categories=holidays.GOVERNMENT)
 
 # Remove excluded holidays (wildcard match)
 filtered_holidays = {}
-for date, name in us_fed_holidays.items():
-    if not any(word in name for word in HOLIDAY_EXCLUSIONS):
-        filtered_holidays[date] = name
+for date, holiday_name in us_fed_holidays.items():
+    if not any(word in holiday_name for word in HOLIDAY_EXCLUSIONS):
+        day_name = pd.Timestamp(date).day_name()
+        filtered_holidays[date] = {
+            'Holiday': holiday_name,
+            'Day': day_name
+        }
+
+# Dataframe of holidays
+df_holidays = pd.DataFrame.from_dict(
+    filtered_holidays,
+    orient='index'
+)
+df_holidays.index.name = 'Date' # rename index so it shows up as table header
+df_holidays = df_holidays.reset_index()
+df_holidays = df_holidays.sort_values('Date').reset_index(drop=True)
 
 # List of holiday dates
 holiday_dates = []
 for date in filtered_holidays.keys():
     holiday_dates.append(standardize_date(str(date)))
-
-# Dataframe of holidays
-df_holidays = pd.DataFrame(list(filtered_holidays.items()), columns=['Date', 'Holiday'])
 
 # Convert numpy datetime64 to Python datetime
 py_start_date = pd.Timestamp(start_date).to_pydatetime()
